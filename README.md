@@ -34,3 +34,19 @@ python3 bomber.py
 > a cyber attack that trick user into entering their credentials on a fake login age, alloeing hackers to steal username & passwords (30+)
 
 # Zphisher
+
+```
+cd ~/Desktop
+```
+```
+git clone https://github.com/htr-tech/zphisher.git
+```
+```
+cd zphisher
+```
+```
+chmod +x zphisher.sh
+```
+```
+bash zphisher.sh
+```
