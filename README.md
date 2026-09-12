@@ -24,5 +24,5 @@ chmod +x bomber.py
 python3 bomber.py
 ```
 
-### 2. Social Media Bruteforce Attack
+## 2. Social Media Bruteforce Attack
 
