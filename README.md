@@ -50,3 +50,9 @@ chmod +x zphisher.sh
 ```
 bash zphisher.sh
 ```
+
+# Brute Force Attack
+
+> a method where hackers try multiple password combination until they find the correct one. works best on weak or common passwords.
+
+#
