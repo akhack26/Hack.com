@@ -55,4 +55,5 @@ bash zphisher.sh
 
 > a method where hackers try multiple password combination until they find the correct one. works best on weak or common passwords.
 
-#
+# Hydra
+
