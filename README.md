@@ -70,3 +70,6 @@ Social Engineering
 # Session Hijacking 
 > a technique where hackers steal session cookies to access an social media account without needing a password.
 > https://en.wikipedia.org/wiki/HTTP_cookie
+
+
+# test web https://share.google/fujbfiU1vOd4tJBPo
