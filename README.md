@@ -24,7 +24,8 @@ chmod +x bomber.py
 python3 bomber.py
 ```
 
-## 2. Social Media Attack's
+
+# 2. Social Media Attack's
 
 > mark zucherberg (2016) --- Weak password "dadada" leaked from Linkedin breach
 > selena gomez (2017) --- phishing attack leaked private photos
