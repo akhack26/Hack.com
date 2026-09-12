@@ -57,3 +57,14 @@ bash zphisher.sh
 
 # Hydra
 
+Social Engineering
+
+> a hacking technique that exploits human psychology instead technical flaws to gain access to accounts
+
+# common social engineering tectics
+> 1. fack help desk calls -- hackers pretend to be instagram supports 
+> 2. impersonation -- posing as a frind/celebrity to trick victim
+> 3. emotion manipulation -- fake emergencies to rush victims into revealing
+https://en.wikipedia.org/wiki/Social_engineering_(security)
+
+#
