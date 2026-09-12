@@ -67,4 +67,6 @@ Social Engineering
 > 3. emotion manipulation -- fake emergencies to rush victims into revealing
 > https://en.wikipedia.org/wiki/Social_engineering_(security)
 
-#
+# Session Hijacking 
+> a technique where hackers steal session cookies to access an social media account without needing a password.
+> https://en.wikipedia.org/wiki/HTTP_cookie
