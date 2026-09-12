@@ -26,3 +26,8 @@ python3 bomber.py
 
 ## 2. Social Media Bruteforce Attack
 
+> mark zucherberg (2016) --- Weak password "dadada" leaked from Linkedin breach
+> selena gomez (2017) --- phishing attack leaked private photos
+> Hack-for-Hire (2020) --- Si swapping bypassed 2FA & hijacked influencer accounts
+
+# phishing attack
