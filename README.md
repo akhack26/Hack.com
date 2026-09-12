@@ -31,3 +31,6 @@ python3 bomber.py
 > Hack-for-Hire (2020) --- Si swapping bypassed 2FA & hijacked influencer accounts
 
 # phishing attack
+> a cyber attack that trick user into entering their credentials on a fake login age, alloeing hackers to steal username & passwords (30+)
+
+# Zphisher
