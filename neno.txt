@@ -1,0 +1,465 @@
+Mujhe ISHA ke existing code ko completely samajhkar Local AI/Ollama architecture ko fix aur upgrade karna hai.
+
+IMPORTANT:
+
+- Existing GUI/design ko change mat karna.
+- Existing working features ko unnecessarily remove mat karna.
+- Pehle existing architecture ko analyze karo.
+- Main goal local AI ko ISHA ka actual brain banana hai.
+- Ollama sirf ek generic chatbot ki tarah behave nahi karna chahiye.
+- ISHA ko ek intelligent desktop AI assistant ki tarah architecture karo.
+
+1. CORE CONCEPT
+
+ISHA mein:
+
+Ollama Local Model = ISHA ka Brain
+
+OS/Automation Layer = ISHA ke Hands
+
+ISHA Orchestrator/Agent Layer = Brain + Hands ka connection
+
+Jab Ollama ISHA ke through run ho, model ko system prompt/context se clearly pata hona chahiye:
+
+- Main ISHA ke andar run ho raha hoon.
+- Main ISHA ka local intelligence/brain hoon.
+- Mere paas ISHA ke OS tools aur system capabilities available hain.
+- User ke natural-language instructions ko understand karke appropriate action/tool choose karna meri responsibility hai.
+- Mujhe sirf predefined commands ke exact wording par depend nahi karna hai.
+
+2. LOCAL MODEL SHOULD ACT AS AN AGENT, NOT ONLY CHATBOT
+
+Current system agar aisa hai:
+
+User:
+"Recycle Bin clean kar do"
+
+→ tool exists nahi hai
+
+→ ISHA says "I don't have a tool for that"
+
+To architecture ko improve karo.
+
+Expected behavior:
+
+User:
+"Recycle Bin clean kar do"
+
+Local model:
+
+1. User intent samjhe.
+2. Determine kare ki ye Windows OS action hai.
+3. Available OS/automation capabilities inspect/select kare.
+4. Appropriate safe method choose kare.
+5. ISHA ke OS execution layer ko action de.
+6. Result verify kare.
+7. User ko result bataye.
+8. TTS enabled ho to result speak kare.
+
+Model ko hard-coded sentence matching par dependent mat rakho.
+
+3. GENERAL OS CAPABILITY
+
+Main chahta hoon ki ISHA ka OS control layer bahut advanced aur extensible ho.
+
+Sirf ye predefined functions nahi:
+
+- open notepad
+- open calculator
+- volume
+- CPU
+- RAM
+- browser
+- etc.
+
+Architecture aisa banao ki future mein naye OS tasks add karna easy ho.
+
+Examples:
+
+- Recycle Bin clean
+- create/delete/rename/move files
+- search files
+- open folders
+- manage windows
+- launch applications
+- close applications
+- browser actions
+- system information
+- network information
+- volume
+- display settings
+- screenshots
+- clipboard operations
+- keyboard/mouse automation where appropriate
+- process/application management
+- other legitimate Windows OS operations
+
+IMPORTANT:
+Model ko directly unrestricted shell access mat do.
+
+OS actions ke liye controlled execution layer/tool gateway banao.
+
+4. DYNAMIC TOOL/COMMAND RESOLUTION
+
+Agar user koi task bole jiske liye exact predefined function nahi hai, ISHA ko immediately fail nahi hona chahiye.
+
+Example:
+
+"Recycle Bin clean kar do"
+
+Agar "empty_recycle_bin()" naam ka function nahi hai, agent ko conceptually identify karna chahiye:
+
+Intent:
+EMPTY_RECYCLE_BIN
+
+Possible OS capability:
+Windows shell/API/system operation
+
+Then controlled OS executor ke through action perform kare.
+
+Similarly:
+
+"Desktop par New Project naam ka folder bana do"
+
+"Downloads mein PDF files find karo"
+
+"Ye application close kar do"
+
+"Computer ki storage check karo"
+
+"Browser kholo aur website open karo"
+
+Natural language ko capability/action mein convert karna chahiye.
+
+5. SAFE OS EXECUTION
+
+Jarvis-style autonomy ka matlab unrestricted dangerous execution nahi hai.
+
+Architecture mein safety layer rakho:
+
+User request
+↓
+Local AI reasoning
+↓
+Intent/action plan
+↓
+Tool/OS capability validation
+↓
+Permission/risk check
+↓
+Execution
+↓
+Result verification
+↓
+AI response
+
+High-impact/destructive operations ke liye confirmation mechanism rakho.
+
+Examples:
+
+- deleting important files
+- formatting drives
+- uninstalling software
+- changing critical system settings
+- shutdown/restart
+- bulk deletion
+
+Safe/read-only tasks ko unnecessary confirmation se block mat karo.
+
+6. COMMAND EXECUTION ABSTRACTION
+
+OS layer mein ek generic controlled executor architecture consider karo.
+
+For example conceptually:
+
+OSCapability
+↓
+Action Resolver
+↓
+Validated Executor
+↓
+Windows API / PowerShell / CMD / Python OS APIs
+↓
+Result
+↓
+ISHA
+
+Different operations ke liye appropriate method use ho sakta hai:
+
+- Python standard libraries
+- Windows APIs
+- PowerShell
+- CMD
+- pywin32
+- subprocess where justified
+
+Lekin arbitrary model-generated commands ko blindly execute mat karo.
+
+7. MODEL CONTEXT
+
+Ollama request ke system context ko improve karo.
+
+Model ko useful context milna chahiye:
+
+- ISHA identity
+- current operating system
+- available tools/capabilities
+- current system state when needed
+- conversation history
+- tool execution results
+- current user request
+
+Example conceptual system identity:
+
+"You are ISHA, a local-first desktop AI assistant running inside the user's computer. The local Ollama model is your reasoning engine. You can interact with the operating system through ISHA's controlled tool and automation layer. Understand natural-language requests, select appropriate capabilities, execute safe actions, verify results, and communicate the outcome."
+
+Exact wording implementation ke according improve kar sakte ho.
+
+8. MULTI-STEP TASKS
+
+ISHA ko multi-step tasks samajhne ki capability chahiye.
+
+Example:
+
+"Chrome kholo, Google open karo, phir Downloads folder mein latest PDF dhundo."
+
+Agent should conceptually:
+
+1. Open Chrome
+2. Open Google
+3. Inspect Downloads
+4. Find latest PDF
+5. Return result
+
+Har step ke baad tool result model ko wapas mile, taaki next action previous result ke basis par decide ho.
+
+9. TOOL RESULT → MODEL LOOP
+
+Architecture ideally:
+
+User
+↓
+Ollama
+↓
+Tool decision
+↓
+ISHA executes tool
+↓
+Tool result
+↓
+Ollama receives result
+↓
+Next decision OR final answer
+
+Is loop ko properly implement karo.
+
+Model ko tool execute hone ke baad result se unaware nahi rehna chahiye.
+
+10. LOCAL-FIRST
+
+ISHA ka primary intelligence local Ollama model hona chahiye.
+
+API/cloud AI optional rahe.
+
+Agar API available nahi hai:
+
+→ ISHA should still work using Ollama.
+
+Local model ko unnecessary API dependency mat do.
+
+11. MODEL ROUTING
+
+Existing model routing ko preserve/improve karo.
+
+Coding tasks ke liye coding model use ho sakta hai.
+
+General conversation ke liye general model use ho sakta hai.
+
+Lekin dono models ko ISHA ke same:
+
+- system identity
+- tool architecture
+- conversation context
+- execution protocol
+
+ka access hona chahiye.
+
+12. MEMORY / HISTORY
+
+Conversation history ko properly maintain karo.
+
+Model ko relevant previous context milna chahiye.
+
+Tool calls ko bhi conversation context mein structured form mein maintain karo.
+
+Example conceptual message types:
+
+user
+assistant
+tool/action
+tool result
+assistant
+
+Isse multi-step reasoning aur continuity improve hogi.
+
+13. ERROR RECOVERY
+
+Agar tool fail ho:
+
+Model ko actual error/result do.
+
+Example:
+
+Tool:
+"Recycle Bin operation failed"
+
+ISHA should not falsely say:
+"Recycle Bin cleaned successfully."
+
+Instead:
+
+- understand failure
+- possibly choose another supported method
+- retry only when safe
+- otherwise clearly report failure
+
+14. SELF-DIAGNOSTIC CAPABILITY
+
+ISHA startup par apni available capabilities detect kar sake:
+
+- Ollama running?
+- Which models available?
+- Python version?
+- OS?
+- Optional libraries installed?
+- Camera available?
+- TTS available?
+- Audio available?
+- Required Windows components available?
+
+Missing capability ko clearly identify kare.
+
+15. EXTENSIBLE ARCHITECTURE
+
+Future mein mujhe manually har command ke liye huge "if/elif" list add na karni pade.
+
+Avoid architecture like:
+
+if "notepad" in text:
+...
+elif "calculator" in text:
+...
+elif "recycle bin" in text:
+...
+
+Instead use:
+
+Natural Language
+→ Intent/Action understanding
+→ Capability registry
+→ Tool selection
+→ Validation
+→ Execution
+→ Result
+→ Final response
+
+New tools/capabilities ko registry/interface ke through add karna easy hona chahiye.
+
+16. JARVIS-LEVEL GOAL
+
+"Jarvis-level" se mera matlab Marvel ka fictional character literally reproduce karna nahi hai.
+
+Mera technical goal hai:
+
+- natural conversation
+- local intelligence
+- context awareness
+- tool use
+- multi-step planning
+- OS automation
+- system awareness
+- memory
+- voice input/output
+- proactive architecture where appropriate
+- error recovery
+- extensible capabilities
+- safe autonomous task execution
+
+ISHA ko ek normal chatbot nahi, balki local-first intelligent computer agent banana hai.
+
+17. IMPORTANT IMPLEMENTATION RULE
+
+Code modify karne se pehle existing code ko thoroughly analyze karo.
+
+Particularly inspect:
+
+- OllamaWorker
+- system prompt
+- message/history structure
+- tool registry
+- tool execution
+- WindowsController
+- OS control functions
+- subprocess usage
+- error handling
+- TTS pipeline
+- API/local model separation
+
+Existing GUI ko preserve karo.
+
+Existing functionality ko preserve karo.
+
+Changes primarily backend/AI architecture mein karo.
+
+18. TEST CASES
+
+Implementation ke baad at least ye natural-language tests verify karo:
+
+1. "Notepad kholo."
+2. "Calculator kholo."
+3. "Recycle Bin clean kar do."
+4. "Desktop par Test naam ka folder bana do."
+5. "Downloads mein PDF files find karo."
+6. "Mere PC mein kitni RAM hai?"
+7. "CPU usage batao."
+8. "Active window minimize karo."
+9. "Browser kholo."
+10. "Mujhe system ki storage batao."
+11. Multi-step natural-language task.
+12. Invalid/failed operation.
+13. Destructive operation requiring confirmation.
+
+Har test mein verify karo:
+
+Natural language
+→ AI understanding
+→ correct capability selection
+→ safe execution
+→ actual OS result
+→ result returned to model
+→ correct final response
+→ TTS output where enabled.
+
+FINAL GOAL
+
+ISHA ka local Ollama model sirf "answer generator" nahi hona chahiye.
+
+It should function as:
+
+ISHA Brain
++
+ISHA Tool/OS Hands
++
+ISHA Memory
++
+ISHA Voice
++
+ISHA Orchestrator
+
+Mujhe ek robust, modular, local-first desktop AI agent architecture chahiye jo future mein aur capabilities easily accept kar sake.
+
+Do not redesign the GUI.
+
+Do not remove existing working features.
+
+First analyze the current architecture, then implement the minimum necessary backend changes to achieve this behavior.
