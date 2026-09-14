@@ -1,0 +1,48 @@
+from llama_cpp import Llama
+import sys
+
+# 1. Optimized Model Loading
+llm = Llama(
+    model_path="llama-3.2-3b-instruct-q4_k_m.gguf",
+    n_ctx=2048,
+    n_threads=6,            # Apne CPU ke physical cores ke hisab se badlein (e.g., 4, 6, ya 8)
+    # n_gpu_layers=-1,      # Uncomment karein agar NVIDIA GPU use kar rahe hain
+    verbose=False
+)
+
+messages = [
+    {"role": "system", "content": "You are a helpful and concise AI assistant."}
+]
+
+print("--- Fast AI Chatbot Ready! ---")
+
+while True:
+    user_input = input("\nYou: ")
+    if user_input.lower() in ["exit", "quit"]:
+        break
+    
+    messages.append({"role": "user", "content": user_input})
+    
+    print("\nAI: ", end="", flush=True)
+    
+    # 2. Fast Streaming Generation
+    response_stream = llm.create_chat_completion(
+        messages=messages,
+        temperature=0.7,
+        max_tokens=256,       # Zaroorat ke hisab se tokens limit karein
+        stream=True           # Word-by-word fast display ke liye
+    )
+    
+    collected_text = ""
+    for chunk in response_stream:
+        delta = chunk["choices"][0]["delta"]
+        if "content" in delta:
+            content = delta["content"]
+            print(content, end="", flush=True)
+            collected_text += content
+            
+    print()
+    messages.append({"role": "assistant", "content": collected_text})
+
+
+    
