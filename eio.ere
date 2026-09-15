@@ -1,48 +1,880 @@
-from llama_cpp import Llama
-import sys
+ISHA – Local AI Backend Replacement & Ultra-Fast Response Update
 
-# 1. Optimized Model Loading
+Mujhe existing ISHA project me ek major local-AI backend update karna hai.
+
+1. Main Objective
+
+Existing ISHA me jo Ollama/local model integration hai, usko completely remove/replace karna hai.
+
+Uski jagah direct GGUF model inference using llama.cpp / llama-cpp-python use karna hai.
+
+Reason:
+
+- Ollama response dene me noticeable delay kar raha hai.
+- Mere standalone GGUF test code me response noticeably fast aa raha hai.
+- Mere "gguf.py" implementation me "llama_cpp.Llama" ke through GGUF load ho raha hai.
+- Usme "create_chat_completion(..., stream=True)" use karke response token/chunk-by-chunk immediately print ho raha hai.
+- ISHA me bhi isi type ka fast streaming behavior chahiye.
+
+Mera goal hai ki ISHA ka local model direct GGUF ho aur response latency minimum ho.
+
+---
+
+2. Existing Ollama Backend Remove/Replace
+
+Existing ISHA architecture me:
+
+"ISHA → Ollama → Local Model → Response"
+
+ko replace karke:
+
+"ISHA → llama.cpp → GGUF Model → Streaming Response"
+
+banana hai.
+
+Ollama ko local inference ke liye dependency ke roop me use nahi karna hai.
+
+Important:
+
+- Ollama process start/stop/check karne wala unnecessary code remove karo.
+- Ollama API calls remove karo.
+- Ollama model names/configuration ko GGUF configuration se replace karo.
+- Ollama unavailable/error handling ko GGUF/llama.cpp error handling se replace karo.
+- Existing GUI ko redesign mat karo.
+- Existing ISHA features ko unnecessarily remove mat karo.
+
+---
+
+3. GGUF Backend
+
+Mere existing "gguf.py" code ko reference implementation ke roop me use karo.
+
+Us code me:
+
+from llama_cpp import Llama
+
+ke through model load ho raha hai.
+
+Model configuration approximately isi architecture par honi chahiye:
+
 llm = Llama(
-    model_path="llama-3.2-3b-instruct-q4_k_m.gguf",
+    model_path="MODEL_PATH.gguf",
     n_ctx=2048,
-    n_threads=6,            # Apne CPU ke physical cores ke hisab se badlein (e.g., 4, 6, ya 8)
-    # n_gpu_layers=-1,      # Uncomment karein agar NVIDIA GPU use kar rahe hain
+    n_threads=6,
     verbose=False
 )
 
+Lekin hard-coded values blindly copy mat karo.
+
+System ke hardware ke according practical configuration provide karo.
+
+GGUF model path configurable hona chahiye.
+
+Example:
+
+models/
+    llama-3.2-3b-instruct-q4_k_m.gguf
+
+ya user-selected GGUF path.
+
+GUI/configuration se model select/change karne ka option existing architecture ke according preserve karo.
+
+---
+
+4. Most Important: Streaming Response
+
+Mere "gguf.py" me response streaming already fast hai.
+
+Reference behavior:
+
+response_stream = llm.create_chat_completion(
+    messages=messages,
+    temperature=0.7,
+    max_tokens=256,
+    stream=True
+)
+
+Aur chunks immediately process hote hain:
+
+for chunk in response_stream:
+    delta = chunk["choices"][0]["delta"]
+
+    if "content" in delta:
+        content = delta["content"]
+        print(content, end="", flush=True)
+
+ISHA me bhi exactly isi concept ko implement karo.
+
+Response ko complete generate hone ke baad ek saath GUI me show mat karo.
+
+Instead:
+
+"GGUF generates token"
+↓
+"token/chunk immediately received"
+↓
+"GUI text area immediately updated"
+↓
+"TTS ko bhi immediately streamed text milta rahe"
+
+---
+
+5. GUI Text Display ko Fast Karo
+
+ISHA ke GUI me jo AI response text print/show hota hai, usme currently unnecessary delay hai.
+
+Usko optimize karo.
+
+Required behavior:
+
+Jaise hi GGUF se response ka first token/chunk aaye:
+
+GUI me immediately show hona chahiye.
+
+User ko model ka complete answer generate hone ka wait nahi karna chahiye.
+
+Example:
+
+Model internally generate kar raha hai:
+
+Hello
+
+GUI:
+
+Hello
+
+Next chunk:
+
+Hello! How
+
+GUI immediately update:
+
+Hello! How
+
+Next:
+
+Hello! How can I
+
+GUI immediately update.
+
+Is tarah response live stream hona chahiye.
+
+---
+
+6. GUI Thread Freeze Nahi Hona Chahiye
+
+Important:
+
+GGUF inference GUI/main thread me directly run mat karo agar usse GUI freeze hota hai.
+
+Architecture:
+
+GUI/Main Thread
+       |
+       | User message
+       ↓
+AI Worker Thread
+       |
+       ↓
+llama.cpp / GGUF
+       |
+       | streaming chunks
+       ↓
+GUI Signal/Event
+       |
+       ↓
+Text Display
+
+AI generation background worker/thread me chale.
+
+GUI responsive rahe.
+
+User simultaneously:
+
+- scrolling kar sake
+- buttons use kar sake
+- stop generation kar sake
+- new UI interactions kar sake
+
+---
+
+7. GUI Text Update Optimization
+
+Har single character ke liye expensive GUI operation mat karo agar usse performance reduce hoti hai.
+
+Streaming ko optimize karo.
+
+Possible architecture:
+
+GGUF chunk
+   ↓
+small text buffer
+   ↓
+very frequent lightweight GUI update
+   ↓
+display
+
+Lekin buffering itni large nahi honi chahiye ki visible delay aaye.
+
+Goal:
+
+Fast + smooth streaming
+
+na ki:
+
+Generate complete response → suddenly display everything
+
+---
+
+8. Text-to-Speech ko Response ke Saath Start Karo
+
+Ye second major update hai.
+
+Currently TTS response complete hone ke baad start ho raha hai, jiski wajah se user ko extra wait karna padta hai.
+
+Is behavior ko change karo.
+
+Current:
+
+User
+ ↓
+GGUF generates complete answer
+ ↓
+GUI displays complete answer
+ ↓
+TTS starts
+
+Required:
+
+User
+ ↓
+GGUF starts
+ ↓
+First text chunks
+ ↓
+GUI immediately displays
+ ↓
+TTS simultaneously starts/queues speech
+ ↓
+GGUF continues generating
+ ↓
+GUI continues streaming
+ ↓
+TTS continues speaking
+
+---
+
+9. TTS Must Work Parallel to Generation
+
+TTS ko blocking operation mat banao.
+
+Agar TTS synchronous hai aur model generation ko block karta hai, architecture incorrect hoga.
+
+Required:
+
+                ┌──→ GUI Streaming
+GGUF Stream ────┤
+                └──→ TTS Queue
+
+TTS ka separate worker/thread/queue use karo.
+
+Model ko TTS ke complete hone ka wait nahi karna chahiye.
+
+Example:
+
+GGUF generates:
+
+Hello! Welcome to ISHA.
+
+Jaise hi enough natural speech text available ho:
+
+TTS:
+
+Hello! Welcome to ISHA.
+
+bolna start kare.
+
+Meanwhile GGUF next text generate karta rahe.
+
+---
+
+10. TTS ko Character-by-Character Mat Bolo
+
+Har individual token/character ko TTS me send karna bad implementation hoga.
+
+Speech ko natural chunks me divide karo.
+
+Best approach:
+
+Sentence/chunk based TTS queue
+
+Example:
+
+GGUF stream:
+"Hello! Welcome to ISHA. How can I help you today?"
+
+TTS chunks:
+
+"Hello! Welcome to ISHA."
+
+then:
+
+"How can I help you today?"
+
+Jaise hi sentence/appropriate phrase complete ho, usko TTS queue me daal do.
+
+TTS previous chunk bol raha ho aur GGUF next chunk generate kar raha ho.
+
+---
+
+11. TTS First-Speech Latency Reduce Karo
+
+Important optimization:
+
+TTS ko poora AI response complete hone tak wait nahi karna hai.
+
+First natural sentence/chunk complete hote hi TTS start hona chahiye.
+
+Target architecture:
+
+First sentence generated
+        ↓
+GUI shows it
+        ↓
+TTS queue receives it
+        ↓
+TTS starts
+
+Meanwhile:
+
+GGUF → next sentence
+
+generate karta rahe.
+
+---
+
+12. TTS Queue
+
+Dedicated TTS queue implement karo.
+
+Example architecture:
+
+GGUF Worker
+     |
+     | text chunk
+     ↓
+TTS Queue
+     |
+     ↓
+TTS Worker
+     |
+     ↓
+Speech Output
+
+TTS Worker ko model worker se independent rakho.
+
+Agar TTS slow hai, model generation slow nahi hona chahiye.
+
+---
+
+13. TTS Engine Existing Implementation Preserve Karo
+
+ISHA me jo existing TTS engines available hain unhe unnecessarily remove mat karo.
+
+Agar project me multiple TTS fallback already hai, us architecture ko preserve karte hue streaming/queue behavior add karo.
+
+Priority:
+
+1. Existing preferred TTS
+2. Existing fallback
+3. Existing system/native TTS
+
+Lekin TTS ko asynchronous banana important hai.
+
+---
+
+14. Stop Button
+
+Agar ISHA me Stop/Cancel generation functionality already hai, usko GGUF streaming ke saath integrate karo.
+
+User Stop press kare to:
+
+GGUF generation stop
++
+TTS queue clear
++
+Current TTS stop/cancel if supported
+
+hona chahiye.
+
+Old queued sentences ko Stop ke baad speak nahi karna chahiye.
+
+---
+
+15. Conversation Memory
+
+Existing conversation/history system ko preserve karo.
+
+GGUF ko messages isi type ke structured format me bhejo:
+
 messages = [
-    {"role": "system", "content": "You are a helpful and concise AI assistant."}
+    {"role": "system", "content": "..."},
+    {"role": "user", "content": "..."}
 ]
 
-print("--- Fast AI Chatbot Ready! ---")
+Assistant ka final collected response history me save karo:
 
-while True:
-    user_input = input("\nYou: ")
-    if user_input.lower() in ["exit", "quit"]:
-        break
-    
-    messages.append({"role": "user", "content": user_input})
-    
-    print("\nAI: ", end="", flush=True)
-    
-    # 2. Fast Streaming Generation
-    response_stream = llm.create_chat_completion(
-        messages=messages,
-        temperature=0.7,
-        max_tokens=256,       # Zaroorat ke hisab se tokens limit karein
-        stream=True           # Word-by-word fast display ke liye
-    )
-    
-    collected_text = ""
-    for chunk in response_stream:
-        delta = chunk["choices"][0]["delta"]
-        if "content" in delta:
-            content = delta["content"]
-            print(content, end="", flush=True)
-            collected_text += content
-            
-    print()
-    messages.append({"role": "assistant", "content": collected_text})
+{"role": "assistant", "content": collected_text}
 
+Streaming ke dauran GUI update alag ho sakta hai, lekin final complete response conversation memory me correctly save hona chahiye.
 
-    
+---
+
+16. ISHA Personality/System Prompt
+
+GGUF ko clearly pata hona chahiye ki:
+
+- Ye ISHA ke andar running local AI hai.
+- Model ISHA ka brain hai.
+- OS/tool layer ISHA ke actions/hands hain.
+- Existing ISHA tools/action system ke through permitted operations perform karne hain.
+
+Existing ISHA system prompt/personality ko preserve karo.
+
+Ollama-specific assumptions ko remove karke GGUF-compatible prompt flow banao.
+
+---
+
+17. Existing ISHA Tool/OS System Preserve Karo
+
+Important:
+
+Sirf Ollama replace karna hai.
+
+ISHA ke existing:
+
+- PC control
+- file operations
+- system monitoring
+- browser operations
+- memory
+- TTS
+- STT
+- GUI
+- tools
+- permissions
+- confirmations
+- security
+- logging
+
+ko unnecessarily remove mat karo.
+
+GGUF ko existing ISHA orchestration/tool system ke saath connect karo.
+
+Architecture:
+
+                 ┌── GUI
+                 │
+User → ISHA → GGUF Brain
+                 │
+                 ├── Memory
+                 │
+                 ├── Tool/Action Layer
+                 │
+                 ├── OS Control
+                 │
+                 └── TTS
+
+---
+
+18. Model Configuration
+
+GUI/config me possible configuration provide karo:
+
+GGUF Model
+Model Path
+Context Size
+CPU Threads
+GPU Layers (if supported)
+Temperature
+Max Tokens
+
+Lekin existing GUI design ko unnecessarily change mat karo.
+
+Agar existing model/backend settings screen hai, usi me GGUF settings integrate karo.
+
+---
+
+19. CPU/GPU Optimization
+
+"llama-cpp-python" ke available capabilities ke according hardware acceleration support rakho.
+
+CPU mode:
+
+n_threads = appropriate CPU thread count
+
+GPU support available ho to configurable GPU layers use karne ka option rakho.
+
+Hard-code hardware assumptions mat karo.
+
+App start hone par model unnecessarily repeatedly reload nahi hona chahiye.
+
+---
+
+20. Model Loading
+
+GGUF model ko application startup par preferably ek baar load karo.
+
+Har user message par:
+
+load model
+generate
+unload model
+
+aisa nahi hona chahiye.
+
+Instead:
+
+ISHA Start
+ ↓
+GGUF Model Load
+ ↓
+Model stays loaded
+ ↓
+User message
+ ↓
+Fast generation
+
+Isse repeated model-loading latency avoid hogi.
+
+---
+
+21. First Response Latency
+
+Model load hone ke baad first token tak ka delay minimum karne ke liye existing GGUF configuration optimize karo.
+
+Generation ke waqt unnecessary:
+
+- file operations
+- network calls
+- Ollama health checks
+- unnecessary logging
+- blocking TTS
+- unnecessary GUI refresh
+- model reload
+
+avoid karo.
+
+---
+
+22. No Ollama Dependency
+
+Final implementation me local inference ke liye:
+
+Ollama = NOT REQUIRED
+
+hona chahiye.
+
+ISHA directly:
+
+llama-cpp-python
++
+GGUF
+
+use kare.
+
+Agar Ollama installed nahi hai tab bhi local GGUF AI work karna chahiye.
+
+---
+
+23. Error Handling
+
+GGUF model missing ho:
+
+GGUF model not found.
+Please select/configure a valid GGUF model.
+
+jaisa clear GUI error dikhao.
+
+"llama_cpp" missing ho to clear dependency error do.
+
+Invalid model path ho to application crash nahi karni chahiye.
+
+TTS fail ho to:
+
+AI generation continue honi chahiye.
+
+TTS failure se GGUF generation stop nahi honi chahiye.
+
+---
+
+24. Performance Logging
+
+Optional lightweight performance metrics add karo:
+
+Model load time
+Time to first token
+Tokens/sec
+Total generation time
+TTS start latency
+
+Debug mode me ye information useful hogi.
+
+Normal GUI me unnecessary debug spam mat dikhao.
+
+---
+
+25. Required Final Flow
+
+Final ISHA response pipeline:
+
+USER INPUT
+    ↓
+ISHA GUI
+    ↓
+GGUF / llama.cpp
+    ↓
+STREAMING TOKENS
+    ↓
+    ├──────────────→ GUI TEXT DISPLAY
+    │                    ↓
+    │              User sees response
+    │              immediately
+    │
+    └──────────────→ TTS TEXT BUFFER
+                         ↓
+                   Sentence detected
+                         ↓
+                    TTS QUEUE
+                         ↓
+                    TTS WORKER
+                         ↓
+                    SPEECH OUTPUT
+
+All of these processes should run without unnecessarily blocking each other.
+
+---
+
+26. Performance Goal
+
+Main objective:
+
+ISHA ko mere existing "gguf.py" test code ke streaming behavior ke jitna responsive banana hai.
+
+Reference implementation me:
+
+stream=True
+
+use karke generated content immediately print hota hai.
+
+ISHA GUI me bhi same low-latency streaming behavior chahiye.
+
+Goal:
+
+User sends message
+        ↓
+GGUF starts generation
+        ↓
+First token/chunk
+        ↓
+GUI immediately displays
+        ↓
+TTS begins when first natural speech chunk is ready
+        ↓
+Remaining response continues streaming
+        ↓
+GUI + TTS work in parallel
+
+---
+
+27. Important: Don't Break Existing GUI
+
+Existing ISHA GUI/design ko completely redesign mat karo.
+
+Preserve:
+
+- current window
+- current layout
+- current buttons
+- current styling
+- current chat interface
+- current controls
+
+Sirf backend aur response pipeline ko optimize/replace karo.
+
+---
+
+28. Code Quality
+
+Implementation clean modular architecture me karo.
+
+Suggested separation:
+
+GGUFEngine
+    ↓
+StreamingGenerator
+    ↓
+ResponseHandler
+    ├── GUI Stream
+    └── TTS Stream
+
+Possible classes/modules:
+
+GGUFModelManager
+GGUFInferenceWorker
+StreamingResponseHandler
+TTSWorker
+TTSQueue
+
+Existing project architecture ke according names adjust kar sakte ho.
+
+Duplicate code create mat karo.
+
+---
+
+29. Do Not Do This
+
+❌ Ollama ko GGUF ke saath unnecessary parallel backend mat rakho.
+
+❌ Full response generate hone ke baad GUI me print mat karo.
+
+❌ Full response complete hone ke baad TTS start mat karo.
+
+❌ TTS ko main generation thread me blocking mat rakho.
+
+❌ Har token ko separate TTS request mat banao.
+
+❌ Har character par expensive GUI redraw mat karo.
+
+❌ Har message par GGUF model reload mat karo.
+
+❌ Existing ISHA tools/features ko sirf backend change ke naam par remove mat karo.
+
+❌ GUI ko unnecessary redesign mat karo.
+
+---
+
+30. Testing Required
+
+Implementation complete karne ke baad ye tests karo:
+
+Test 1 – Basic Chat
+
+User:
+
+Hello ISHA
+
+Check:
+
+- GGUF response
+- streaming
+- GUI immediate output
+- TTS
+
+Test 2 – Long Response
+
+A moderately long question ask karo.
+
+Check:
+
+- GUI continuously streams
+- GUI freeze nahi hota
+- TTS response ke saath start hota hai
+- TTS aur generation ek dusre ko block nahi karte
+
+Test 3 – Stop
+
+Generation ke beech Stop press karo.
+
+Check:
+
+- generation stops
+- TTS queue clears
+- old queued speech continue nahi hoti
+
+Test 4 – Model Missing
+
+Invalid GGUF path do.
+
+Check:
+
+- clear error
+- application crash nahi
+
+Test 5 – TTS Failure
+
+TTS unavailable hone par check karo:
+
+- GGUF still works
+- GUI still streams
+- app crash nahi hota
+
+Test 6 – Existing ISHA Tools
+
+Existing tool/action system ka test karo.
+
+Check:
+
+GGUF Brain
+    ↓
+ISHA Orchestrator
+    ↓
+Tool Layer
+    ↓
+Result
+    ↓
+GGUF
+    ↓
+Streaming final response
+
+---
+
+31. Final Requirement
+
+Mujhe ISHA me Ollama-based local AI nahi chahiye.
+
+Mujhe:
+
+Direct GGUF + llama.cpp based local AI
+
+chahiye.
+
+Aur response system:
+
+Fast streaming GUI + parallel low-latency TTS
+
+hona chahiye.
+
+Final architecture:
+
+              ISHA
+                │
+                ▼
+        GGUF / llama.cpp
+          (ISHA Brain)
+                │
+        Streaming Output
+          ┌─────┴─────┐
+          ▼           ▼
+      GUI Text      TTS Queue
+          │           │
+          ▼           ▼
+    Live Response  TTS Worker
+                      │
+                      ▼
+                    Voice
+
+Mere uploaded "gguf.py" ko reference implementation for fast GGUF streaming ke roop me use karo. Usme existing "Llama(...)" loading aur "create_chat_completion(..., stream=True)" behavior ko ISHA ke architecture me properly integrate karo.
+
+Sabse important priorities:
+
+1. Ollama remove/replace
+2. Direct GGUF inference
+3. Fast first-token response
+4. Live GUI streaming
+5. GUI non-blocking
+6. TTS response generation ke saath parallel
+7. Sentence/chunk-based TTS queue
+8. Existing ISHA GUI/features preserve
+9. Existing tools/OS integration preserve
+10. Overall response latency minimum
